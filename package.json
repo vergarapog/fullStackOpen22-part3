@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "test": "\"\""
+    "test": "\u0016echo \\\"Error: no test specified\\\" && exit 1"
   },
   "author": "Brian",
   "license": "MIT",
