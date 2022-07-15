@@ -1,3 +1,4 @@
+require("dotenv").config()
 const express = require("express")
 const app = express()
 const morgan = require("morgan")
@@ -15,6 +16,11 @@ app.use(
 )
 app.use(cors())
 app.use(express.static("build"))
+
+// MONGODB FUNCS///////////////
+const Person = require("./models/phonebook")
+
+// END MONGODB FUNCS///////////////
 
 let phonebook = [
   {
@@ -40,22 +46,35 @@ let phonebook = [
 ]
 
 app.get("/api/phonebook", (request, response) => {
-  response.json(phonebook)
-})
-
-app.get("/api/phonebook/:id", (request, response) => {
-  const id = Number(request.params.id)
-  const data = phonebook.find((curr) => {
-    return curr.id === id
+  Person.find({}).then((res) => {
+    response.json(res)
   })
-  if (data) {
-    response.json(data)
-  } else {
-    response.status(404).end()
-  }
 })
 
-app.post("/api/phonebook", (request, response) => {
+app.get("/api/phonebook/:id", (request, response, next) => {
+  // const id = Number(request.params.id)
+  // const data = phonebook.find((curr) => {
+  //   return curr.id === id
+  // })
+  // if (data) {
+  //   response.json(data)
+  // } else {
+  //   response.status(404).end()
+  // }
+  Person.findById(request.params.id)
+    .then((res) => {
+      if (res) {
+        response.json(res)
+      } else {
+        response.status(404).end()
+      }
+    })
+    .catch((err) => {
+      next(err)
+    })
+})
+
+app.post("/api/phonebook", (request, response, next) => {
   const body = request.body
 
   if (!body.name) {
@@ -69,33 +88,60 @@ app.post("/api/phonebook", (request, response) => {
       error: "number missing",
     })
   }
+  //  DUPLICATE NAME FEATURE, Disabled for now
+  // let allNames = phonebook.reduce((accu, curr) => {
+  //   return [...accu, curr.name]
+  // }, [])
 
-  let allNames = phonebook.reduce((accu, curr) => {
-    return [...accu, curr.name]
-  }, [])
+  // if (allNames.includes(body.name)) {
+  //   return response.status(400).json({
+  //     error: "name already exists in phonebook",
+  //   })
+  // }
 
-  if (allNames.includes(body.name)) {
-    return response.status(400).json({
-      error: "name already exists in phonebook",
+  const newPerson = new Person({
+    name: body.name,
+    number: body.number,
+  })
+
+  newPerson
+    .save()
+    .then((savedPerson) => {
+      response.json(savedPerson)
     })
-  }
+    .catch((err) => next(err))
+})
 
-  const newPerson = {
-    id: generateId(),
+app.put("/api/phonebook/:id", (request, response) => {
+  const body = request.body
+
+  const person = {
     name: body.name,
     number: body.number,
   }
 
-  phonebook = phonebook.concat(newPerson)
-  response.json(newPerson)
+  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+    .then((res) => {
+      response.json(res)
+    })
+    .catch((err) => {
+      console.log(error)
+    })
 })
 
 app.delete("/api/phonebook/:id", (request, response) => {
-  const id = Number(request.params.id)
-  phonebook = phonebook.filter((curr) => {
-    return curr.id !== id
-  })
-  response.status(204).end()
+  // const id = Number(request.params.id)
+  // phonebook = phonebook.filter((curr) => {
+  //   return curr.id !== id
+  // })
+  // response.status(204).end()
+  Person.findByIdAndRemove(request.params.id)
+    .then((res) => {
+      response.status(204).end()
+    })
+    .catch((err) => {
+      console.log(error)
+    })
 })
 
 app.get("/api/info", (request, response) => {
@@ -114,3 +160,18 @@ const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
+
+const errorHandler = (error, request, response, next) => {
+  console.log(error.name)
+  console.log(error.message)
+
+  if (error.name === "CastError") {
+    response.status(400).json({ error: "malformatted id" })
+  }
+  if (error.name === "ValidationError") {
+    response.status(400).json({ error: error.message })
+  }
+  next(error)
+}
+
+app.use(errorHandler)
