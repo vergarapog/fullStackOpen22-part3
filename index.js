@@ -4,7 +4,7 @@ const app = express()
 const morgan = require("morgan")
 const cors = require("cors")
 
-morgan.token("postData", (req, res) => {
+morgan.token("postData", (req) => {
   return JSON.stringify(req.body)
 })
 
@@ -98,6 +98,13 @@ app.post("/api/phonebook", (request, response, next) => {
   //     error: "name already exists in phonebook",
   //   })
   // }
+  // Person.findOne({ name: body.name }).then((res) => {
+  //   if (res) {
+  //     return response.status(400).json({
+  //       error: `${body.name} already exists in phonebook`,
+  //     })
+  //   }
+  // })
 
   const newPerson = new Person({
     name: body.name,
@@ -125,7 +132,7 @@ app.put("/api/phonebook/:id", (request, response) => {
       response.json(res)
     })
     .catch((err) => {
-      console.log(error)
+      console.log(err)
     })
 })
 
@@ -136,11 +143,11 @@ app.delete("/api/phonebook/:id", (request, response) => {
   // })
   // response.status(204).end()
   Person.findByIdAndRemove(request.params.id)
-    .then((res) => {
+    .then(() => {
       response.status(204).end()
     })
     .catch((err) => {
-      console.log(error)
+      console.log(err)
     })
 })
 
@@ -151,10 +158,6 @@ app.get("/api/info", (request, response) => {
     `<p>Phonebook has info for ${entryCount} people</p><br><p>${date}</p>`
   )
 })
-
-const generateId = () => {
-  return Math.floor(Math.random() * 10000 + 1)
-}
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
@@ -169,6 +172,9 @@ const errorHandler = (error, request, response, next) => {
     response.status(400).json({ error: "malformatted id" })
   }
   if (error.name === "ValidationError") {
+    response.status(400).json({ error: error.message })
+  }
+  if (error.name === "MongoServerError") {
     response.status(400).json({ error: error.message })
   }
   next(error)
